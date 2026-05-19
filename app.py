@@ -4,6 +4,42 @@ import gspread
 from google.oauth2.service_account import Credentials
 import os
 
+# === Отладка: покажем структуру проекта ===
+st.write("🔍 Отладка: файлы в проекте")
+
+# Покажем, что видно в корне
+root_files = os.listdir(".")
+st.write("📂 Корневые файлы:", root_files)
+
+# Покажем, есть ли папка `pages`
+if "pages" in root_files:
+    page_files = os.listdir("pages")
+    st.write("📄 Файлы в `pages/`:", page_files)
+else:
+    st.warning("❌ Папка `pages/` не найдена!")
+
+st.markdown("---")
+
+# Кнопки навигации (временно)
+col1, col2, col3, col4 = st.columns(4)
+with col1:
+    if st.button("🏠 Главная"):
+        st.rerun()
+with col2:
+    if st.button("📊 Отчёты"):
+        st.markdown("[Перейти](/pages/1_%F0%9F%93%8A_%D0%9E%D1%82%D1%87%D0%B5%D1%82%D1%8B.py)")
+        st.stop()
+with col3:
+    if st.button("📥 Загрузка"):
+        st.markdown("[Перейти](/pages/2_%F0%9F%93%A5_%D0%97%D0%B0%D0%B3%D1%80%D1%83%D0%B7%D0%BA%D0%B0_%D0%B4%D0%B0%D0%BD%D0%BD%D1%8B%D1%85.py)")
+        st.stop()
+with col4:
+    if st.button("📈 Продажи"):
+        st.markdown("[Перейти](/pages/3_%F0%9F%93%88_%D0%9F%D1%80%D0%BE%D0%B4%D0%B0%D0%B6%D0%B8.py)")
+        st.stop()
+
+# Продолжение основного кода...
+
 # Настройка страницы
 st.set_page_config(page_title="Мой дашборд", layout="wide")
 st.title("🏠 Главная панель")
@@ -84,4 +120,4 @@ else:
     st.error("❌ Нет доступных таблиц в secrets.")
 
 st.markdown("---")
-st.write("👉 Перейдите на другие вкладки для анализа.")
+st.write("👉 Перейдите на другие вкладки через меню слева (☰) или используйте кнопки выше.")
