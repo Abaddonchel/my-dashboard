@@ -6,34 +6,40 @@ import os
 from dotenv import load_dotenv
 import json
 
-# Загружаем переменные окружения
-load_dotenv()
-
 # Настройка страницы
 st.set_page_config(page_title="Google Sheets Дашборд", layout="wide")
 st.title("📊 Аналитика из Google Таблицы")
 
-@st.cache_resource
-def connect_to_google_sheets():
-    """Создаёт подключение к Google Sheets на основе .env"""
+# Попробуем загрузить секреты: сначала st.secrets, потом .env
+try:
+    # 1. Попробуем получить из st.secrets (Streamlit Cloud)
+    client_email = st.secrets["GOOGLE_SHEETS_CLIENT_EMAIL"]
+    private_key = st.secrets["GOOGLE_SHEETS_PRIVATE_KEY"]
+    st.write("🔑 Секреты загружены из `st.secrets` (например, Streamlit Cloud)")
+except KeyError:
+    # 2. Если нет — загружаем из .env (локально)
+    load_dotenv()
     client_email = os.getenv("GOOGLE_SHEETS_CLIENT_EMAIL")
     private_key = os.getenv("GOOGLE_SHEETS_PRIVATE_KEY")
-    
-    if not client_email or not private_key:
-        st.error("❌ Не найдены GOOGLE_SHEETS_CLIENT_EMAIL или GOOGLE_SHEETS_PRIVATE_KEY в .env")
-        return None
+    if client_email and private_key:
+        st.write("🔑 Секреты загружены из `.env` (локально)")
+    else:
+        st.error("❌ Не найдены секреты ни в `st.secrets`, ни в `.env`.")
+        st.stop()
 
+@st.cache_resource
+def connect_to_google_sheets():
+    """Создаёт подключение к Google Sheets"""
     try:
-        # Удаляем кавычки, если есть, и заменяем \n на реальные переносы
-        private_key = private_key.strip("'").strip('"')
-        private_key = private_key.replace('\\n', '\n')  # На случай, если \n экранированы
+        # Очищаем ключ
+        private_key_clean = private_key.strip("'").strip('"').replace('\\n', '\n')
 
-        # Создаём credentials в памяти
+        # Создаём учётные данные
         credentials_info = {
             "type": "service_account",
-            "project_id": "your-project-id",  # Можно оставить заглушку, если не используется
+            "project_id": "your-project-id",
             "private_key_id": "none",
-            "private_key": private_key,
+            "private_key": private_key_clean,
             "client_email": client_email,
             "client_id": "none",
             "auth_uri": "https://accounts.google.com/o/oauth2/auth",
@@ -42,7 +48,6 @@ def connect_to_google_sheets():
             "client_x509_cert_url": f"https://www.googleapis.com/robot/v1/metadata/x509/{client_email.replace('@', '%40')}"
         }
 
-        # Определяем scope
         scopes = [
             "https://spreadsheets.google.com/feeds",
             "https://www.googleapis.com/auth/spreadsheets",
@@ -57,7 +62,7 @@ def connect_to_google_sheets():
         st.error(f"❌ Ошибка аутентификации: {e}")
         return None
 
-@st.cache_data(ttl=600)  # Кэшируем данные на 10 минут
+@st.cache_data(ttl=600)
 def load_data_from_sheet(sheet_id: str, sheet_name: str = None):
     """Загружает данные из Google Таблицы"""
     client = connect_to_google_sheets()
