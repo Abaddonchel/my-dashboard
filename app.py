@@ -3,6 +3,7 @@ import pandas as pd
 import gspread
 from google.oauth2.service_account import Credentials
 import os
+import re
 
 # === Отладка: покажем структуру проекта ===
 st.write("🔍 Отладка: файлы в проекте")
@@ -20,49 +21,38 @@ else:
 
 st.markdown("---")
 
-# Кнопки навигации (временно)
-col1, col2, col3, col4 = st.columns(4)
-with col1:
-    if st.button("🏠 Главная"):
-        st.rerun()
-with col2:
-    if st.button("📊 Отчёты"):
-        st.markdown("[Перейти](/pages/1_%F0%9F%93%8A_%D0%9E%D1%82%D1%87%D0%B5%D1%82%D1%8B.py)")
-        st.stop()
-with col3:
-    if st.button("📥 Загрузка"):
-        st.markdown("[Перейти](/pages/2_%F0%9F%93%A5_%D0%97%D0%B0%D0%B3%D1%80%D1%83%D0%B7%D0%BA%D0%B0_%D0%B4%D0%B0%D0%BD%D0%BD%D1%8B%D1%85.py)")
-        st.stop()
-with col4:
-    if st.button("📈 Продажи"):
-        st.markdown("[Перейти](/pages/3_%F0%9F%93%88_%D0%9F%D1%80%D0%BE%D0%B4%D0%B0%D0%B6%D0%B8.py)")
-        st.stop()
-
-# Продолжение основного кода...
-
-# Настройка страницы
-st.set_page_config(page_title="Мой дашборд", layout="wide")
-st.title("🏠 Главная панель")
-st.write("Выберите таблицу и лист для анализа.")
-
 # === Загрузка секретов ===
 try:
     client_email = st.secrets["GOOGLE_SHEETS_CLIENT_EMAIL"]
-    private_key = st.secrets["GOOGLE_SHEETS_PRIVATE_KEY"]
+    raw_private_key = st.secrets["GOOGLE_SHEETS_PRIVATE_KEY"]
     table_config = st.secrets["tables"]
 except KeyError as e:
     st.error(f"❌ Не найден секрет: {e}")
     st.stop()
 
+# === Очистка private_key ===
+# Удаляем кавычки и лишние пробелы
+private_key = raw_private_key.strip('"\'\n ') 
+# Заменяем экранированные переносы
+private_key = private_key.replace('\\n', '\n').replace('\\r', '\r')
+# Убедимся, что есть BEGIN/END
+if not private_key.startswith('-----BEGIN PRIVATE KEY-----'):
+    private_key = '-----BEGIN PRIVATE KEY-----\n' + private_key
+if not private_key.endswith('-----END PRIVATE KEY-----'):
+    private_key = private_key + '\n-----END PRIVATE KEY-----'
+
+# Для отладки (не в продакшене!)
+st.session_state['debug_private_key_preview'] = private_key[:100] + "..." + private_key[-100:]
+
 @st.cache_resource
 def connect_to_google_sheets():
     try:
-        private_key_clean = private_key.strip("'").strip('"').replace('\\n', '\n')
+        # Создаём credentials
         credentials_info = {
             "type": "service_account",
             "project_id": "your-project-id",
             "private_key_id": "none",
-            "private_key": private_key_clean,
+            "private_key": private_key,
             "client_email": client_email,
             "client_id": "none",
             "auth_uri": "https://accounts.google.com/o/oauth2/auth",
@@ -76,10 +66,13 @@ def connect_to_google_sheets():
             "https://www.googleapis.com/auth/drive"
         ]
         credentials = Credentials.from_service_account_info(credentials_info, scopes=scopes)
-        return gspread.authorize(credentials)
+        client = gspread.authorize(credentials)
+        st.success("✅ Подключено к Google Sheets")
+        return client
     except Exception as e:
-        st.error(f"❌ Ошибка подключения: {e}")
-        return None
+        st.error(f"❌ Ошибка аутентификации: {e}")
+        st.error(f"🔑 Превью ключа: {st.session_state['debug_private_key_preview']}")
+        st.stop()
 
 # === Выбор таблицы ===
 if table_config:
@@ -87,7 +80,7 @@ if table_config:
     selected_table = st.selectbox("Выберите таблицу", table_names)
     sheet_id = table_config[selected_table]
 
-    # === Получение листов ===
+    # Подключаемся
     client = connect_to_google_sheets()
     if client:
         try:
@@ -113,11 +106,15 @@ if table_config:
                 st.session_state.selected_table = selected_table
                 
                 st.success(f"✅ Загружено {len(df)} строк")
-                st.dataframe(df.head())
+                st.dataframe(df.head(10))
             except Exception as e:
                 st.error(f"❌ Ошибка чтения: {e}")
 else:
     st.error("❌ Нет доступных таблиц в secrets.")
 
 st.markdown("---")
-st.write("👉 Перейдите на другие вкладки через меню слева (☰) или используйте кнопки выше.")
+st.write("👉 Перейдите на другие вкладки через меню слева (☰)")
+
+# Показываем данные, если загружены
+if "df" in st.session_state:
+    st.write("**Данные доступны для визуализации.**")

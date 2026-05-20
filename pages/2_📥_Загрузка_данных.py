@@ -1,14 +1,14 @@
 import streamlit as st
 
-st.title("📥 Загрузка данных из Google Sheets")
+st.title("📥 Статус данных")
 
-if "sheet_id" in st.session_state:
-    st.success(f"Текущая таблица: {st.session_state.selected_table}")
-    st.write(f"ID: `{st.session_state.sheet_id}`")
-    if "df" in st.session_state:
-        st.dataframe(st.session_state.df)
+if "df" in st.session_state:
+    df = st.session_state.df
+    st.success(f"✅ Данные загружены: {len(df)} строк, {len(df.columns)} столбцов")
+    st.write("**Источник:** Google Sheets")
+    if "selected_table" in st.session_state:
+        st.write(f"**Таблица:** {st.session_state.selected_table}")
+    
+    st.dataframe(df)
 else:
-    st.info("Данные ещё не загружены. Выберите таблицу на главной странице.")
-
-st.markdown("---")
-st.write("*Здесь можно добавить ручную перезагрузку или смену таблицы.*")
+    st.info("Данные не загружены. Перейдите на главную и нажмите \"Загрузить данные\".")
