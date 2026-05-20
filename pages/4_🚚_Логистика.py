@@ -1,6 +1,25 @@
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
+import seaborn as sns
+from matplotlib.ticker import MaxNLocator
+import warnings
+warnings.filterwarnings('ignore')
+
+# === НАСТРОЙКА СТИЛЯ ===
+plt.style.use('seaborn-v0_8-darkgrid')
+sns.set_palette("husl")
+
+plt.rcParams.update({
+    'figure.facecolor': 'white',
+    'axes.facecolor': '#f8f9fa',
+    'axes.edgecolor': '#e0e0e0',
+    'axes.linewidth': 0.8,
+    'grid.alpha': 0.3,
+    'font.size': 10,
+    'axes.spines.top': False,
+    'axes.spines.right': False,
+})
 
 st.title("🚚 Логистика (Управление сроками)")
 
@@ -40,13 +59,16 @@ if "df" in st.session_state:
                 st.metric("Всего уволено", len(terminated))
             
             # Гистограмма длительности
-            fig, ax = plt.subplots(figsize=(10, 5))
-            ax.hist(terminated['employment_duration'], bins=20, color='steelblue', edgecolor='black', alpha=0.7)
-            ax.set_xlabel("Длительность занятости (дни)")
-            ax.set_ylabel("Количество")
-            ax.set_title("Распределение длительности занятости")
-            ax.grid(axis='y', alpha=0.3)
-            st.pyplot(fig)
+            fig, ax = plt.subplots(figsize=(13, 6))
+            ax.hist(terminated['employment_duration'], bins=25, color=sns.color_palette("husl", 1)[0], 
+                   edgecolor='white', linewidth=1.5, alpha=0.8)
+            ax.set_xlabel("Длительность занятости (дни)", fontsize=11)
+            ax.set_ylabel("Количество", fontsize=11)
+            ax.set_title("Распределение длительности занятости", fontsize=13, fontweight='bold', pad=20)
+            ax.grid(axis='y', alpha=0.2)
+            ax.yaxis.set_major_locator(MaxNLocator(integer=True))
+            fig.tight_layout()
+            st.pyplot(fig, use_container_width=True)
     
     # === Распределение по статусам и срокам ===
     if 'Column1.status' in df.columns and 'Column1.hire_date' in df.columns:
@@ -54,17 +76,29 @@ if "df" in st.session_state:
         
         status_counts = df['Column1.status'].value_counts().dropna()
         
-        fig, ax = plt.subplots(figsize=(8, 5))
-        status_counts.plot(kind='bar', ax=ax, color=['green', 'red'])
-        ax.set_ylabel("Количество")
-        ax.set_title("Распределение по статусам")
-        ax.grid(axis='y', alpha=0.3)
-        plt.xticks(rotation=45)
-        st.pyplot(fig)
+        fig, ax = plt.subplots(figsize=(10, 6))
+        colors_status = sns.color_palette("Set2", len(status_counts))
+        bars = ax.bar(range(len(status_counts)), status_counts.values, color=colors_status, 
+                     edgecolor='white', linewidth=1.5)
+        ax.set_xticks(range(len(status_counts)))
+        ax.set_xticklabels(status_counts.index, fontsize=11)
+        ax.set_ylabel("Количество", fontsize=11)
+        ax.set_title("Распределение по статусам", fontsize=13, fontweight='bold', pad=20)
+        ax.grid(axis='y', alpha=0.2)
+        ax.yaxis.set_major_locator(MaxNLocator(integer=True))
+        
+        # Добавить значения
+        for bar, v in zip(bars, status_counts.values):
+            height = bar.get_height()
+            ax.text(bar.get_x() + bar.get_width()/2., height + 0.5,
+                   f'{int(v)}', ha='center', va='bottom', fontsize=11, fontweight='bold')
+        
+        fig.tight_layout()
+        st.pyplot(fig, use_container_width=True)
         
         # Сроки найма по статусам
         if 'Column1.hire_date' in df.columns:
-            st.subheader("📅 Динамика по статусам")
+            st.subheader("📅 Статистика по статусам")
             
             for status in df['Column1.status'].unique():
                 if pd.notna(status):
@@ -88,11 +122,18 @@ if "df" in st.session_state:
                     'count': len(valid_dates)
                 }
     
-    for col, info in col_info.items():
-        st.write(f"**{col}:**")
-        st.write(f"  - От {info['min']} до {info['max']}")
-        st.write(f"  - Заполнено: {info['count']} значений")
+    if col_info:
+        cols = st.columns(len(col_info))
+        for idx, (col, info) in enumerate(col_info.items()):
+            with cols[idx]:
+                col_name = col.split('.')[-1].replace('_', ' ').title()
+                st.metric(
+                    col_name,
+                    f"{info['count']}",
+                    delta=f"От {info['min'].strftime('%d.%m.%Y')} до {info['max'].strftime('%d.%m.%Y')}"
+                )
     
+    st.divider()
     st.subheader("📊 Таблица данных")
     st.dataframe(df, use_container_width=True)
 else:
