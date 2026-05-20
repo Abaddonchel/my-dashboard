@@ -5,22 +5,6 @@ from google.oauth2.service_account import Credentials
 import os
 import re
 
-# === Отладка: покажем структуру проекта ===
-st.write("🔍 Отладка: файлы в проекте")
-
-# Покажем, что видно в корне
-root_files = os.listdir(".")
-st.write("📂 Корневые файлы:", root_files)
-
-# Покажем, есть ли папка `pages`
-if "pages" in root_files:
-    page_files = os.listdir("pages")
-    st.write("📄 Файлы в `pages/`:", page_files)
-else:
-    st.warning("❌ Папка `pages/` не найдена!")
-
-st.markdown("---")
-
 # === Загрузка секретов ===
 try:
     client_email = st.secrets["GOOGLE_SHEETS_CLIENT_EMAIL"]
