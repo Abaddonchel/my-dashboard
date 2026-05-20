@@ -305,7 +305,7 @@ if "df" in st.session_state:
             with col1:
                 st.metric("Всего нанято", len(df['Column1.hire_date'].dropna()))
             with col2:
-                st.metric("Пиковый период", hires.idxmax())
+                st.metric("Пиковый период", str(hires.idxmax()))
             with col3:
                 st.metric("Макс в период", int(hires.max()))
             with col4:
