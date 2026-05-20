@@ -6,16 +6,22 @@ from datetime import datetime
 st.title("📊 Отчёты")
 
 if "df" in st.session_state:
-    df = st.session_state.df
-
-    # === Преобразуем даты ===
-    if 'Column1.hire_date' in df.columns:
-        df['Column1.hire_date'] = pd.to_datetime(df['Column1.hire_date'], errors='coerce')
+    df = st.session_state.df.copy()
 
     # === 1. Выбор столбца для гистограммы ===
     st.subheader("📊 Распределение по категориям")
+    # Сначала берём категории, потом преобразуем даты
     cat_cols = [col for col in df.columns if df[col].dtype == 'object']
-    selected_col = st.selectbox("Выберите столбец для анализа", cat_cols, index=cat_cols.index('Column1.role') if 'Column1.role' in cat_cols else 0)
+    
+    # === Преобразуем даты ===
+    if 'Column1.hire_date' in df.columns:
+        df['Column1.hire_date'] = pd.to_datetime(df['Column1.hire_date'], errors='coerce')
+    
+    if cat_cols:
+        selected_col = st.selectbox("Выберите столбец для анализа", cat_cols, index=cat_cols.index('Column1.role') if 'Column1.role' in cat_cols else 0)
+    else:
+        st.warning("Нет категориальных столбцов для анализа")
+        selected_col = None
     
     if selected_col:
         value_counts = df[selected_col].value_counts().dropna()

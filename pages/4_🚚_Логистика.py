@@ -1,43 +1,99 @@
 import streamlit as st
 import pandas as pd
+import matplotlib.pyplot as plt
 
-st.title("🚚 Логистика")
+st.title("🚚 Логистика (Управление сроками)")
 
 if "df" in st.session_state:
-    df = st.session_state.df
+    df = st.session_state.df.copy()
     
-    # Ищем столбцы с датами и сроками
-    date_cols = df.select_dtypes(include="datetime64").columns.tolist()
-    if not date_cols:
-        # Или попробуем текстовые
-        for col in df.columns:
-            if "дата" in col.lower() or "date" in col.lower():
-                try:
-                    df[col] = pd.to_datetime(df[col])
-                    date_cols.append(col)
-                except:
-                    pass
+    # Преобразуем даты
+    date_cols_to_convert = ['Column1.hire_date', 'Column1.termination_date', 'Column1.status_change']
+    for col in date_cols_to_convert:
+        if col in df.columns:
+            df[col] = pd.to_datetime(df[col], errors='coerce')
     
-    if date_cols:
-        st.subheader("Временные метки")
-        st.write(f"Найдены столбцы дат: {date_cols}")
-        for col in date_cols:
-            st.write(f"- {col}: от {df[col].min()} до {df[col].max()}")
+    st.subheader("📅 Анализ временных сроков")
     
-    delay_col = None
-    for col in df.columns:
-        if "срок" in col.lower() or "дней" in col.lower() or "время" in col.lower():
-            if df[col].dtype in ['int64', 'float64']:
-                delay_col = col
-                break
+    # === Длительность занятости (для уволенных) ===
+    if 'Column1.hire_date' in df.columns and 'Column1.termination_date' in df.columns:
+        df['employment_duration'] = (df['Column1.termination_date'] - df['Column1.hire_date']).dt.days
+        
+        # Фильтруем только уволенных
+        terminated = df[df['employment_duration'] > 0].copy()
+        
+        if len(terminated) > 0:
+            st.subheader("⏱️ Длительность занятости (уволенные сотрудники)")
+            
+            avg_duration = terminated['employment_duration'].mean()
+            min_duration = terminated['employment_duration'].min()
+            max_duration = terminated['employment_duration'].max()
+            
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                st.metric("Средняя длительность", f"{avg_duration:.0f} дн")
+            with col2:
+                st.metric("Минимум", f"{min_duration:.0f} дн")
+            with col3:
+                st.metric("Максимум", f"{max_duration:.0f} дн")
+            with col4:
+                st.metric("Всего уволено", len(terminated))
+            
+            # Гистограмма длительности
+            fig, ax = plt.subplots(figsize=(10, 5))
+            ax.hist(terminated['employment_duration'], bins=20, color='steelblue', edgecolor='black', alpha=0.7)
+            ax.set_xlabel("Длительность занятости (дни)")
+            ax.set_ylabel("Количество")
+            ax.set_title("Распределение длительности занятости")
+            ax.grid(axis='y', alpha=0.3)
+            st.pyplot(fig)
     
-    if delay_col:
-        avg_days = df[delay_col].mean()
-        st.metric("Средний срок", f"{avg_days:.1f} дней")
-        st.bar_chart(df[delay_col].value_counts())
-    else:
-        st.info("Нет явных столбцов со сроками доставки.")
+    # === Распределение по статусам и срокам ===
+    if 'Column1.status' in df.columns and 'Column1.hire_date' in df.columns:
+        st.subheader("📊 Статусы и сроки найма")
+        
+        status_counts = df['Column1.status'].value_counts().dropna()
+        
+        fig, ax = plt.subplots(figsize=(8, 5))
+        status_counts.plot(kind='bar', ax=ax, color=['green', 'red'])
+        ax.set_ylabel("Количество")
+        ax.set_title("Распределение по статусам")
+        ax.grid(axis='y', alpha=0.3)
+        plt.xticks(rotation=45)
+        st.pyplot(fig)
+        
+        # Сроки найма по статусам
+        if 'Column1.hire_date' in df.columns:
+            st.subheader("📅 Динамика по статусам")
+            
+            for status in df['Column1.status'].unique():
+                if pd.notna(status):
+                    status_df = df[df['Column1.status'] == status]
+                    hires = status_df['Column1.hire_date'].dropna().dt.to_period('M').value_counts().sort_index()
+                    
+                    if len(hires) > 0:
+                        st.write(f"**{status}**: {len(status_df)} сотрудников")
     
-    st.dataframe(df)
+    # === Информация о датах ===
+    st.subheader("📋 Информация об основных датах")
+    
+    col_info = {}
+    for col in ['Column1.hire_date', 'Column1.termination_date', 'Column1.status_change']:
+        if col in df.columns:
+            valid_dates = df[col].dropna()
+            if len(valid_dates) > 0:
+                col_info[col] = {
+                    'min': valid_dates.min(),
+                    'max': valid_dates.max(),
+                    'count': len(valid_dates)
+                }
+    
+    for col, info in col_info.items():
+        st.write(f"**{col}:**")
+        st.write(f"  - От {info['min']} до {info['max']}")
+        st.write(f"  - Заполнено: {info['count']} значений")
+    
+    st.subheader("📊 Таблица данных")
+    st.dataframe(df, use_container_width=True)
 else:
     st.info("Загрузите данные для анализа.")
